@@ -1,0 +1,9 @@
+---
+- name: Parar ambiente
+  hosts: local
+  gather_facts: false
+  tasks:
+    - name: Parar containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ playbook_dir }}/.."
+        state: absent

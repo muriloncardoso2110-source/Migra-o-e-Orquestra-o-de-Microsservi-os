@@ -1,0 +1,39 @@
+---
+- name: Implantar loja em containers
+  hosts: local
+  gather_facts: false
+  vars:
+    project_dir: "{{ playbook_dir }}/.."
+  tasks:
+    - name: Verificar Docker
+      ansible.builtin.command: docker info
+      changed_when: false
+
+    - name: Validar manifesto Compose
+      ansible.builtin.command: docker compose config --quiet
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+
+    - name: Construir e subir servicos
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        state: present
+        build: always
+        wait: true
+        wait_timeout: 120
+      register: compose_result
+
+    - name: Conferir resposta do proxy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ lookup('env', 'APP_PORT') | default('8080', true) }}/health"
+        status_code: 200
+        return_content: true
+      register: nginx_health
+      retries: 8
+      delay: 3
+      until: nginx_health.status == 200
+
+    - name: Informar ambiente
+      ansible.builtin.debug:
+        msg: "Implantacao finalizada. Acesse http://localhost:{{ lookup('env', 'APP_PORT') | default('8080', true) }}"
